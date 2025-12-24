@@ -80,6 +80,25 @@ class TestListModels:
         assert "DEPTH" in output
         assert "MATTING" in output
         assert "INPAINT" in output
+        assert "UPSCALE" in output
+        assert "INTERPOLATE" in output
+        assert "FACE" in output
+        assert "FLOW" in output
+
+    def test_contains_new_models(self):
+        output = list_models()
+        # Upscale models
+        assert "realesrgan" in output
+        assert "video2x" in output
+        # Interpolate models
+        assert "rife" in output
+        assert "film" in output
+        # Face models
+        assert "gfpgan" in output
+        assert "codeformer" in output
+        # Flow models
+        assert "raft" in output
+        assert "unimatch" in output
 
 
 class TestConfig:

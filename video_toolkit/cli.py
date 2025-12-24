@@ -299,6 +299,274 @@ def inpaint(
 
 
 # ============================================================================
+# UPSCALE Command
+# ============================================================================
+@cli.command()
+@click.argument("video_path", type=click.Path(exists=True))
+@click.option("--scale", "-s", type=click.Choice(["2", "4"]), default="4", help="Upscale factor")
+@click.option("--model", "-m", type=click.Choice(["realesrgan", "video2x"]), default="realesrgan", help="Upscaling model")
+@click.option("--preset", "-p", type=click.Choice(["general", "anime", "fast"]), default="general", help="Model preset (realesrgan only)")
+@click.option("--output-dir", "-o", type=click.Path(), help="Output directory")
+@click.option("--device", "-d", type=click.Choice(["cuda", "cpu"]), help="Device for inference")
+def upscale(
+    video_path: str,
+    scale: str,
+    model: str,
+    preset: str,
+    output_dir: Optional[str],
+    device: Optional[str],
+) -> None:
+    """Upscale video resolution.
+
+    Uses AI models to increase video resolution while preserving detail.
+    Supports both general content and anime-specific models.
+
+    Examples:
+
+        vidtool upscale video.mp4
+
+        vidtool upscale video.mp4 -s 2 -p anime
+
+        vidtool upscale video.mp4 -m video2x
+    """
+    try:
+        config = Config.from_env()
+        if device:
+            config.device = device
+        if output_dir:
+            config.output_dir = Path(output_dir)
+
+        config.ensure_dirs()
+        _show_warnings(config)
+
+        click.echo(f"\nVideo AI Toolkit - Upscale")
+        click.echo("=" * 40)
+        click.echo(f"Model: {model} ({preset})")
+        click.echo(f"Scale: {scale}x")
+        click.echo(f"Input: {video_path}")
+        click.echo("")
+
+        if model == "realesrgan":
+            from video_toolkit.upscale import RealESRGANUpscaler
+            upscaler = RealESRGANUpscaler(config)
+            result = upscaler.upscale_video(video_path, int(scale), preset)
+        else:  # video2x
+            from video_toolkit.upscale import Video2XUpscaler
+            upscaler = Video2XUpscaler(config)
+            result = upscaler.upscale_video(video_path, int(scale))
+
+        click.echo("")
+        click.secho("Upscaling complete!", fg="green")
+        click.echo(f"Output in {config.output_dir}")
+
+    except ToolkitError as e:
+        click.secho(f"Error: {e}", fg="red")
+        raise SystemExit(1)
+
+
+# ============================================================================
+# INTERPOLATE Command
+# ============================================================================
+@cli.command()
+@click.argument("video_path", type=click.Path(exists=True))
+@click.option("--model", "-m", type=click.Choice(["rife", "film"]), default="rife", help="Interpolation model")
+@click.option("--multiplier", "-x", type=click.Choice(["2", "4", "8"]), default="2", help="Frame multiplier")
+@click.option("--fps", "-f", type=float, help="Target FPS (overrides multiplier)")
+@click.option("--output-dir", "-o", type=click.Path(), help="Output directory")
+@click.option("--device", "-d", type=click.Choice(["cuda", "cpu"]), help="Device for inference")
+def interpolate(
+    video_path: str,
+    model: str,
+    multiplier: str,
+    fps: Optional[float],
+    output_dir: Optional[str],
+    device: Optional[str],
+) -> None:
+    """Interpolate video frames for slow motion.
+
+    Generates intermediate frames to increase frame rate or create
+    smooth slow motion effects.
+
+    Examples:
+
+        vidtool interpolate video.mp4
+
+        vidtool interpolate video.mp4 -x 4
+
+        vidtool interpolate video.mp4 --fps 60 -m film
+    """
+    try:
+        config = Config.from_env()
+        if device:
+            config.device = device
+        if output_dir:
+            config.output_dir = Path(output_dir)
+
+        config.ensure_dirs()
+        _show_warnings(config)
+
+        click.echo(f"\nVideo AI Toolkit - Interpolate")
+        click.echo("=" * 40)
+        click.echo(f"Model: {model}")
+        if fps:
+            click.echo(f"Target FPS: {fps}")
+        else:
+            click.echo(f"Multiplier: {multiplier}x")
+        click.echo(f"Input: {video_path}")
+        click.echo("")
+
+        if model == "rife":
+            from video_toolkit.interpolate import RIFEInterpolator
+            interpolator = RIFEInterpolator(config)
+            result = interpolator.interpolate_video(video_path, int(multiplier), fps)
+        else:  # film
+            from video_toolkit.interpolate import FILMInterpolator
+            interpolator = FILMInterpolator(config)
+            result = interpolator.interpolate_video(video_path, int(multiplier), fps)
+
+        click.echo("")
+        click.secho("Interpolation complete!", fg="green")
+        click.echo(f"Output in {config.output_dir}")
+
+    except ToolkitError as e:
+        click.secho(f"Error: {e}", fg="red")
+        raise SystemExit(1)
+
+
+# ============================================================================
+# FACE Command
+# ============================================================================
+@cli.command()
+@click.argument("video_path", type=click.Path(exists=True))
+@click.option("--model", "-m", type=click.Choice(["gfpgan", "codeformer"]), default="gfpgan", help="Face restoration model")
+@click.option("--fidelity", "-f", type=float, default=0.5, help="Fidelity weight (codeformer only, 0.0-1.0)")
+@click.option("--upscale", "-s", type=click.Choice(["1", "2", "4"]), default="2", help="Upscale factor")
+@click.option("--output-dir", "-o", type=click.Path(), help="Output directory")
+@click.option("--device", "-d", type=click.Choice(["cuda", "cpu"]), help="Device for inference")
+def face(
+    video_path: str,
+    model: str,
+    fidelity: float,
+    upscale: str,
+    output_dir: Optional[str],
+    device: Optional[str],
+) -> None:
+    """Restore faces in video.
+
+    Enhances and restores degraded faces using AI models.
+    Useful for old footage or low-quality video restoration.
+
+    Examples:
+
+        vidtool face video.mp4
+
+        vidtool face video.mp4 -m codeformer -f 0.7
+
+        vidtool face video.mp4 -s 4
+    """
+    try:
+        config = Config.from_env()
+        if device:
+            config.device = device
+        if output_dir:
+            config.output_dir = Path(output_dir)
+
+        config.ensure_dirs()
+        _show_warnings(config)
+
+        click.echo(f"\nVideo AI Toolkit - Face Restoration")
+        click.echo("=" * 40)
+        click.echo(f"Model: {model}")
+        if model == "codeformer":
+            click.echo(f"Fidelity: {fidelity}")
+        click.echo(f"Upscale: {upscale}x")
+        click.echo(f"Input: {video_path}")
+        click.echo("")
+
+        if model == "gfpgan":
+            from video_toolkit.face import GFPGANRestorer
+            restorer = GFPGANRestorer(config)
+            result = restorer.restore_video(video_path, int(upscale))
+        else:  # codeformer
+            from video_toolkit.face import CodeFormerRestorer
+            restorer = CodeFormerRestorer(config)
+            result = restorer.restore_video(video_path, fidelity, int(upscale))
+
+        click.echo("")
+        click.secho("Face restoration complete!", fg="green")
+        click.echo(f"Output in {config.output_dir}")
+
+    except ToolkitError as e:
+        click.secho(f"Error: {e}", fg="red")
+        raise SystemExit(1)
+
+
+# ============================================================================
+# FLOW Command
+# ============================================================================
+@cli.command()
+@click.argument("video_path", type=click.Path(exists=True))
+@click.option("--model", "-m", type=click.Choice(["raft", "unimatch"]), default="raft", help="Optical flow model")
+@click.option("--variant", "-v", type=click.Choice(["small", "standard"]), default="standard", help="Model variant (raft only)")
+@click.option("--output-dir", "-o", type=click.Path(), help="Output directory")
+@click.option("--device", "-d", type=click.Choice(["cuda", "cpu"]), help="Device for inference")
+def flow(
+    video_path: str,
+    model: str,
+    variant: str,
+    output_dir: Optional[str],
+    device: Optional[str],
+) -> None:
+    """Estimate optical flow in video.
+
+    Computes dense motion vectors between consecutive frames.
+    Outputs colorized flow visualization.
+
+    Examples:
+
+        vidtool flow video.mp4
+
+        vidtool flow video.mp4 -m raft -v small
+
+        vidtool flow video.mp4 -m unimatch
+    """
+    try:
+        config = Config.from_env()
+        if device:
+            config.device = device
+        if output_dir:
+            config.output_dir = Path(output_dir)
+
+        config.ensure_dirs()
+        _show_warnings(config)
+
+        click.echo(f"\nVideo AI Toolkit - Optical Flow")
+        click.echo("=" * 40)
+        click.echo(f"Model: {model}")
+        if model == "raft":
+            click.echo(f"Variant: {variant}")
+        click.echo(f"Input: {video_path}")
+        click.echo("")
+
+        if model == "raft":
+            from video_toolkit.flow import RAFTEstimator
+            estimator = RAFTEstimator(config)
+            result = estimator.estimate_flow(video_path, variant)
+        else:  # unimatch
+            from video_toolkit.flow import UniMatchEstimator
+            estimator = UniMatchEstimator(config)
+            result = estimator.estimate_flow(video_path)
+
+        click.echo("")
+        click.secho("Flow estimation complete!", fg="green")
+        click.echo(f"Output in {config.output_dir}")
+
+    except ToolkitError as e:
+        click.secho(f"Error: {e}", fg="red")
+        raise SystemExit(1)
+
+
+# ============================================================================
 # INFO Command
 # ============================================================================
 @cli.command()

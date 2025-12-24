@@ -162,6 +162,22 @@ AVAILABLE_MODELS = {
         "propainter": {"name": "ProPainter", "desc": "Object removal with flow completion"},
         "e2fgvi": {"name": "E2FGVI", "desc": "Flow-guided video inpainting"},
     },
+    "upscale": {
+        "realesrgan": {"name": "Real-ESRGAN", "desc": "Video/image upscaling with anime support"},
+        "video2x": {"name": "Video2X", "desc": "Multi-backend upscaling framework"},
+    },
+    "interpolate": {
+        "rife": {"name": "RIFE", "desc": "Real-time frame interpolation (4K@30fps)"},
+        "film": {"name": "FILM", "desc": "Frame interpolation for large motion"},
+    },
+    "face": {
+        "gfpgan": {"name": "GFPGAN", "desc": "GAN-based face restoration"},
+        "codeformer": {"name": "CodeFormer", "desc": "Robust blind face restoration"},
+    },
+    "flow": {
+        "raft": {"name": "RAFT", "desc": "Recurrent all-pairs field transforms"},
+        "unimatch": {"name": "UniMatch", "desc": "Unified flow/depth/stereo matching"},
+    },
 }
 
 
