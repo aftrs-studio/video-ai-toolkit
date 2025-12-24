@@ -567,6 +567,275 @@ def flow(
 
 
 # ============================================================================
+# STABILIZE Command
+# ============================================================================
+@cli.command()
+@click.argument("video_path", type=click.Path(exists=True))
+@click.option("--smoothing", "-s", type=float, default=0.8, help="Smoothing factor (0.0-1.0)")
+@click.option("--crop", "-c", type=float, default=0.9, help="Crop ratio to hide borders (0.0-1.0)")
+@click.option("--output-dir", "-o", type=click.Path(), help="Output directory")
+@click.option("--device", "-d", type=click.Choice(["cuda", "cpu"]), help="Device for inference")
+def stabilize(
+    video_path: str,
+    smoothing: float,
+    crop: float,
+    output_dir: Optional[str],
+    device: Optional[str],
+) -> None:
+    """Stabilize shaky video.
+
+    Uses optical flow and trajectory smoothing to remove camera shake.
+
+    Examples:
+
+        vidtool stabilize shaky.mp4
+
+        vidtool stabilize shaky.mp4 -s 0.9 -c 0.85
+
+        vidtool stabilize shaky.mp4 -o ./stabilized
+    """
+    try:
+        config = Config.from_env()
+        if device:
+            config.device = device
+        if output_dir:
+            config.output_dir = Path(output_dir)
+
+        config.ensure_dirs()
+        _show_warnings(config)
+
+        click.echo(f"\nVideo AI Toolkit - Stabilize")
+        click.echo("=" * 40)
+        click.echo(f"Smoothing: {smoothing}")
+        click.echo(f"Crop ratio: {crop}")
+        click.echo(f"Input: {video_path}")
+        click.echo("")
+
+        from video_toolkit.stabilize import DeepStabilizer
+        stabilizer = DeepStabilizer(config)
+        result = stabilizer.stabilize_video(video_path, smoothing, crop)
+
+        click.echo("")
+        click.secho("Stabilization complete!", fg="green")
+        click.echo(f"Output in {config.output_dir}")
+
+    except ToolkitError as e:
+        click.secho(f"Error: {e}", fg="red")
+        raise SystemExit(1)
+
+
+# ============================================================================
+# DENOISE Command
+# ============================================================================
+@cli.command()
+@click.argument("video_path", type=click.Path(exists=True))
+@click.option("--model", "-m", type=click.Choice(["fastdvdnet", "videnn"]), default="fastdvdnet", help="Denoising model")
+@click.option("--sigma", "-s", type=float, default=25.0, help="Noise level (fastdvdnet: 0-50)")
+@click.option("--strength", type=float, default=1.0, help="Denoising strength (videnn: 0.0-2.0)")
+@click.option("--low-light", is_flag=True, help="Enable low-light enhancement (videnn only)")
+@click.option("--output-dir", "-o", type=click.Path(), help="Output directory")
+@click.option("--device", "-d", type=click.Choice(["cuda", "cpu"]), help="Device for inference")
+def denoise(
+    video_path: str,
+    model: str,
+    sigma: float,
+    strength: float,
+    low_light: bool,
+    output_dir: Optional[str],
+    device: Optional[str],
+) -> None:
+    """Remove noise from video.
+
+    Uses temporal and spatial filtering to reduce video noise.
+
+    Examples:
+
+        vidtool denoise noisy.mp4
+
+        vidtool denoise noisy.mp4 -m fastdvdnet -s 30
+
+        vidtool denoise dark.mp4 -m videnn --low-light
+    """
+    try:
+        config = Config.from_env()
+        if device:
+            config.device = device
+        if output_dir:
+            config.output_dir = Path(output_dir)
+
+        config.ensure_dirs()
+        _show_warnings(config)
+
+        click.echo(f"\nVideo AI Toolkit - Denoise")
+        click.echo("=" * 40)
+        click.echo(f"Model: {model}")
+        if model == "fastdvdnet":
+            click.echo(f"Noise sigma: {sigma}")
+        else:
+            click.echo(f"Strength: {strength}")
+            if low_light:
+                click.echo("Low-light enhancement: enabled")
+        click.echo(f"Input: {video_path}")
+        click.echo("")
+
+        if model == "fastdvdnet":
+            from video_toolkit.denoise import FastDVDnetDenoiser
+            denoiser = FastDVDnetDenoiser(config)
+            result = denoiser.denoise_video(video_path, sigma)
+        else:  # videnn
+            from video_toolkit.denoise import ViDeNNDenoiser
+            denoiser = ViDeNNDenoiser(config)
+            result = denoiser.denoise_video(video_path, strength, low_light)
+
+        click.echo("")
+        click.secho("Denoising complete!", fg="green")
+        click.echo(f"Output in {config.output_dir}")
+
+    except ToolkitError as e:
+        click.secho(f"Error: {e}", fg="red")
+        raise SystemExit(1)
+
+
+# ============================================================================
+# COLORIZE Command
+# ============================================================================
+@cli.command()
+@click.argument("video_path", type=click.Path(exists=True))
+@click.option("--model", "-m", type=click.Choice(["deoldify"]), default="deoldify", help="Colorization model")
+@click.option("--render-factor", "-r", type=int, default=21, help="Quality factor (10-40, higher = better)")
+@click.option("--artistic", is_flag=True, help="Use artistic model for more vibrant colors")
+@click.option("--output-dir", "-o", type=click.Path(), help="Output directory")
+@click.option("--device", "-d", type=click.Choice(["cuda", "cpu"]), help="Device for inference")
+def colorize(
+    video_path: str,
+    model: str,
+    render_factor: int,
+    artistic: bool,
+    output_dir: Optional[str],
+    device: Optional[str],
+) -> None:
+    """Colorize black and white video.
+
+    Uses AI to add realistic colors to grayscale footage.
+
+    Examples:
+
+        vidtool colorize bw_footage.mp4
+
+        vidtool colorize old_film.mp4 -r 35 --artistic
+
+        vidtool colorize archive.mp4 -o ./colorized
+    """
+    try:
+        config = Config.from_env()
+        if device:
+            config.device = device
+        if output_dir:
+            config.output_dir = Path(output_dir)
+
+        config.ensure_dirs()
+        _show_warnings(config)
+
+        click.echo(f"\nVideo AI Toolkit - Colorize")
+        click.echo("=" * 40)
+        click.echo(f"Model: {model}")
+        click.echo(f"Render factor: {render_factor}")
+        if artistic:
+            click.echo("Mode: artistic")
+        click.echo(f"Input: {video_path}")
+        click.echo("")
+
+        from video_toolkit.colorize import DeOldifyColorizer
+        colorizer = DeOldifyColorizer(config)
+        result = colorizer.colorize_video(video_path, render_factor, artistic)
+
+        click.echo("")
+        click.secho("Colorization complete!", fg="green")
+        click.echo(f"Output in {config.output_dir}")
+
+    except ToolkitError as e:
+        click.secho(f"Error: {e}", fg="red")
+        raise SystemExit(1)
+
+
+# ============================================================================
+# GENERATE Command
+# ============================================================================
+@cli.command()
+@click.option("--prompt", "-p", required=True, help="Text description of video to generate")
+@click.option("--image", "-i", type=click.Path(exists=True), help="Source image for image-to-video")
+@click.option("--model", "-m", type=click.Choice(["wan", "cogvideo"]), default="wan", help="Generation model")
+@click.option("--frames", "-f", type=int, default=49, help="Number of frames to generate")
+@click.option("--seed", "-s", type=int, help="Random seed for reproducibility")
+@click.option("--output-dir", "-o", type=click.Path(), help="Output directory")
+@click.option("--device", "-d", type=click.Choice(["cuda", "cpu"]), help="Device for inference")
+def generate(
+    prompt: str,
+    image: Optional[str],
+    model: str,
+    frames: int,
+    seed: Optional[int],
+    output_dir: Optional[str],
+    device: Optional[str],
+) -> None:
+    """Generate video from text or image.
+
+    Uses AI to create video from text descriptions or animate images.
+
+    Examples:
+
+        vidtool generate -p "a cat walking on the beach"
+
+        vidtool generate -p "ocean waves" -m cogvideo -f 81
+
+        vidtool generate -p "person dancing" -i photo.jpg
+    """
+    try:
+        config = Config.from_env()
+        if device:
+            config.device = device
+        if output_dir:
+            config.output_dir = Path(output_dir)
+
+        config.ensure_dirs()
+        _show_warnings(config)
+
+        click.echo(f"\nVideo AI Toolkit - Generate")
+        click.echo("=" * 40)
+        click.echo(f"Model: {model}")
+        click.echo(f"Prompt: {prompt[:50]}..." if len(prompt) > 50 else f"Prompt: {prompt}")
+        if image:
+            click.echo(f"Image: {image}")
+        click.echo(f"Frames: {frames}")
+        if seed:
+            click.echo(f"Seed: {seed}")
+        click.echo("")
+
+        if model == "wan":
+            from video_toolkit.generate import WanGenerator
+            generator = WanGenerator(config)
+            if image:
+                result = generator.generate_from_image(image, prompt, frames, seed=seed)
+            else:
+                result = generator.generate_from_text(prompt, num_frames=frames, seed=seed)
+        else:  # cogvideo
+            from video_toolkit.generate import CogVideoGenerator
+            generator = CogVideoGenerator(config)
+            if image:
+                result = generator.generate_from_image(image, prompt, frames, seed=seed)
+            else:
+                result = generator.generate_from_text(prompt, num_frames=frames, seed=seed)
+
+        click.echo("")
+        click.secho("Generation complete!", fg="green")
+        click.echo(f"Output in {config.output_dir}")
+
+    except ToolkitError as e:
+        click.secho(f"Error: {e}", fg="red")
+        raise SystemExit(1)
+
+
+# ============================================================================
 # INFO Command
 # ============================================================================
 @cli.command()

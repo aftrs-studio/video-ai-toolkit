@@ -178,6 +178,20 @@ AVAILABLE_MODELS = {
         "raft": {"name": "RAFT", "desc": "Recurrent all-pairs field transforms"},
         "unimatch": {"name": "UniMatch", "desc": "Unified flow/depth/stereo matching"},
     },
+    "stabilize": {
+        "deepstab": {"name": "DeepStab", "desc": "Deep learning video stabilization"},
+    },
+    "denoise": {
+        "fastdvdnet": {"name": "FastDVDnet", "desc": "Real-time deep video denoising"},
+        "videnn": {"name": "ViDeNN", "desc": "Blind denoising with low-light support"},
+    },
+    "colorize": {
+        "deoldify": {"name": "DeOldify", "desc": "NoGAN video colorization"},
+    },
+    "generate": {
+        "wan": {"name": "Wan 2.1", "desc": "Alibaba text/image-to-video (MoE)"},
+        "cogvideo": {"name": "CogVideoX", "desc": "Zhipu AI text/image-to-video"},
+    },
 }
 
 
