@@ -1006,6 +1006,207 @@ def style(
 
 
 # ============================================================================
+# PIPELINE Command Group
+# ============================================================================
+@cli.group()
+def pipeline() -> None:
+    """Pipeline processing - chain multiple processors.
+
+    Build and run multi-step processing pipelines:
+
+        vidtool pipeline run video.mp4 --steps "denoise,upscale:scale=4"
+
+        vidtool pipeline random video.mp4 --min-steps 2 --max-steps 4
+
+        vidtool pipeline list --category enhancement
+    """
+    pass
+
+
+@pipeline.command("run")
+@click.argument("video_path", type=click.Path(exists=True))
+@click.option("--config", "-c", type=click.Path(exists=True), help="Pipeline config file (YAML/JSON)")
+@click.option("--steps", "-s", help="Inline steps: 'denoise,upscale:scale=4,style:style=art.jpg'")
+@click.option("--output-dir", "-o", type=click.Path(), help="Output directory")
+@click.option("--device", "-d", type=click.Choice(["cuda", "cpu"]), help="Device for inference")
+def pipeline_run(
+    video_path: str,
+    config: Optional[str],
+    steps: Optional[str],
+    output_dir: Optional[str],
+    device: Optional[str],
+) -> None:
+    """Run a processing pipeline on video.
+
+    Use --config to load from file or --steps for inline specification.
+
+    Examples:
+
+        vidtool pipeline run video.mp4 --config enhance.yaml
+
+        vidtool pipeline run video.mp4 --steps "denoise,upscale:scale=4"
+
+        vidtool pipeline run video.mp4 -s "depth,style:style=art.jpg"
+    """
+    from video_toolkit.pipeline import Pipeline
+
+    try:
+        cfg = Config.from_env()
+        if device:
+            cfg.device = device
+        if output_dir:
+            cfg.output_dir = Path(output_dir)
+        cfg.ensure_dirs()
+
+        if config:
+            pipe = Pipeline.load(config, cfg)
+        elif steps:
+            pipe = Pipeline.from_steps_string(steps, name="inline", config=cfg)
+        else:
+            raise ToolkitError("Specify --config or --steps")
+
+        click.echo(f"\nVideo AI Toolkit - Pipeline")
+        click.echo("=" * 40)
+        result = pipe.run(Path(video_path), cfg.output_dir)
+
+        if result.success:
+            click.secho("\nPipeline complete!", fg="green")
+            if result.final_output:
+                click.echo(f"Final output: {result.final_output}")
+        else:
+            click.secho(f"\nPipeline failed at step {result.completed_count + 1}", fg="red")
+            raise SystemExit(1)
+
+    except ToolkitError as e:
+        click.secho(f"Error: {e}", fg="red")
+        raise SystemExit(1)
+
+
+@pipeline.command("random")
+@click.argument("video_path", type=click.Path(exists=True))
+@click.option("--min-steps", type=int, default=2, help="Minimum number of steps")
+@click.option("--max-steps", type=int, default=4, help="Maximum number of steps")
+@click.option("--categories", help="Comma-separated categories (enhancement,creative,...)")
+@click.option("--exclude", help="Comma-separated processor IDs to exclude")
+@click.option("--seed", type=int, help="Random seed for reproducibility")
+@click.option("--preview", is_flag=True, help="Preview pipeline without running")
+@click.option("--output-dir", "-o", type=click.Path(), help="Output directory")
+@click.option("--device", "-d", type=click.Choice(["cuda", "cpu"]), help="Device for inference")
+def pipeline_random(
+    video_path: str,
+    min_steps: int,
+    max_steps: int,
+    categories: Optional[str],
+    exclude: Optional[str],
+    seed: Optional[int],
+    preview: bool,
+    output_dir: Optional[str],
+    device: Optional[str],
+) -> None:
+    """Generate and run a random pipeline.
+
+    Create experimental processing chains with random processor selection.
+
+    Examples:
+
+        vidtool pipeline random video.mp4 --seed 42
+
+        vidtool pipeline random video.mp4 --categories "enhancement,creative"
+
+        vidtool pipeline random video.mp4 --min-steps 2 --max-steps 5 --exclude "generate"
+
+        vidtool pipeline random video.mp4 --preview
+    """
+    from video_toolkit.pipeline import RandomPipeline
+
+    try:
+        cfg = Config.from_env()
+        if device:
+            cfg.device = device
+        if output_dir:
+            cfg.output_dir = Path(output_dir)
+        cfg.ensure_dirs()
+
+        cat_list = [c.strip() for c in categories.split(",")] if categories else None
+        exc_list = [e.strip() for e in exclude.split(",")] if exclude else None
+
+        generator = RandomPipeline(
+            min_steps=min_steps,
+            max_steps=max_steps,
+            categories=cat_list,
+            exclude=exc_list,
+            config=cfg,
+        )
+
+        if preview:
+            click.echo(generator.preview(seed))
+            return
+
+        click.echo(f"\nVideo AI Toolkit - Random Pipeline")
+        click.echo("=" * 40)
+        result = generator.run_random(Path(video_path), seed=seed, output_dir=cfg.output_dir)
+
+        if result.success:
+            click.secho("\nRandom pipeline complete!", fg="green")
+            if result.final_output:
+                click.echo(f"Final output: {result.final_output}")
+        else:
+            click.secho(f"\nPipeline failed at step {result.completed_count + 1}", fg="red")
+            raise SystemExit(1)
+
+    except ToolkitError as e:
+        click.secho(f"Error: {e}", fg="red")
+        raise SystemExit(1)
+
+
+@pipeline.command("list")
+@click.option("--category", "-c", help="Filter by category")
+def pipeline_list(category: Optional[str]) -> None:
+    """List available processors for pipelines.
+
+    Examples:
+
+        vidtool pipeline list
+
+        vidtool pipeline list --category enhancement
+    """
+    from video_toolkit.pipeline import ProcessorRegistry
+
+    click.echo("\n" + ProcessorRegistry.format_list(category))
+
+
+@pipeline.command("create")
+@click.argument("output_file", type=click.Path())
+@click.option("--steps", "-s", required=True, help="Steps: 'denoise,upscale:scale=4,style:style=art.jpg'")
+@click.option("--name", "-n", default="my_pipeline", help="Pipeline name")
+@click.option("--description", "-d", default="", help="Pipeline description")
+def pipeline_create(
+    output_file: str,
+    steps: str,
+    name: str,
+    description: str,
+) -> None:
+    """Create a pipeline config file from steps.
+
+    Examples:
+
+        vidtool pipeline create enhance.yaml --steps "denoise,upscale:scale=4"
+
+        vidtool pipeline create my.json -s "depth,style:style=art.jpg" -n "my_pipe"
+    """
+    from video_toolkit.pipeline import Pipeline
+
+    try:
+        pipe = Pipeline.from_steps_string(steps, name=name)
+        pipe.description = description
+        pipe.save(Path(output_file))
+
+    except Exception as e:
+        click.secho(f"Error: {e}", fg="red")
+        raise SystemExit(1)
+
+
+# ============================================================================
 # INFO Command
 # ============================================================================
 @cli.command()

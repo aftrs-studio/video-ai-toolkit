@@ -1,0 +1,22 @@
+name: "enhance_and_stylize"
+description: "Denoise, upscale, then apply artistic style"
+
+steps:
+  - processor: denoise
+    params:
+      sigma: 25
+
+  - processor: upscale
+    params:
+      scale: 4
+      preset: general
+
+  - processor: style
+    params:
+      style: /path/to/painting.jpg
+      alpha: 0.8
+      preserve_color: false
+
+settings:
+  continue_on_error: false
+  save_intermediates: true
