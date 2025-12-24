@@ -1,0 +1,21 @@
+# Video AI Toolkit Requirements
+# Install with: pip install -r requirements.txt
+
+# PyTorch with CUDA (install separately based on your CUDA version)
+# pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+
+# Core dependencies
+click>=8.1.0
+opencv-python>=4.8.0
+ffmpeg-python>=0.2.0
+huggingface-hub>=0.20.0
+tqdm>=4.66.0
+numpy>=1.26.0
+pillow>=10.0.0
+python-dotenv>=1.0.0
+
+# Model-specific dependencies (install via scripts/install_*.sh)
+# Segmentation: segment-anything-2, groundingdino
+# Depth: depth-anything-v2
+# Matting: robust-video-matting
+# Inpainting: propainter
